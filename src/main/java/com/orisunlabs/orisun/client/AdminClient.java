@@ -472,6 +472,48 @@ public class AdminClient implements AutoCloseable {
         return getEventCount(GetEventCountRequest.newBuilder().setBoundary(boundary).build());
     }
 
+    // Index Management Operations
+
+    /**
+     * Create a new index on a boundary
+     */
+    public void createIndex(CreateIndexRequest request) throws OrisunException {
+        AdminRequestValidator.validateCreateIndexRequest(request);
+
+        logger.debug("Creating index '{}' on boundary: {}", request.getName(), request.getBoundary());
+
+        try {
+            blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .createIndex(request);
+
+            logger.info("Successfully created index '{}' on boundary: {}", request.getName(), request.getBoundary());
+
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "createIndex");
+        }
+    }
+
+    /**
+     * Drop an index from a boundary
+     */
+    public void dropIndex(DropIndexRequest request) throws OrisunException {
+        AdminRequestValidator.validateDropIndexRequest(request);
+
+        logger.debug("Dropping index '{}' from boundary: {}", request.getName(), request.getBoundary());
+
+        try {
+            blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .dropIndex(request);
+
+            logger.info("Successfully dropped index '{}' from boundary: {}", request.getName(), request.getBoundary());
+
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "dropIndex");
+        }
+    }
+
     private OrisunException handleException(StatusRuntimeException e, String operation) {
         Map<String, Object> context = new HashMap<>();
         context.put("operation", operation);

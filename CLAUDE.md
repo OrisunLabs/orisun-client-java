@@ -99,6 +99,7 @@ The `AdminClient` class mirrors the architecture of `OrisunClient` but focuses o
 - **User Management**: `createUser`, `deleteUser`, `changePassword`, `listUsers`
 - **Authentication**: `validateCredentials`
 - **Statistics**: `getUserCount`, `getEventCount`
+- **Index Management**: `createIndex`, `dropIndex`
 
 Both clients share the same authentication flow, token caching mechanism, and connection management patterns.
 
@@ -232,4 +233,36 @@ if (response.getSuccess()) {
 ```java
 long userCount = adminClient.getUserCount();
 long eventCount = adminClient.getEventCount("users-boundary");
+```
+
+**Creating an index:**
+```java
+CreateIndexRequest request = CreateIndexRequest.newBuilder()
+    .setBoundary("events-boundary")
+    .setName("idx_user_id")
+    .addFields(IndexField.newBuilder()
+        .setJsonKey("userId")
+        .setValueType(ValueType.TEXT)
+        .build())
+    .addFields(IndexField.newBuilder()
+        .setJsonKey("timestamp")
+        .setValueType(ValueType.TIMESTAMPTZ)
+        .build())
+    .addConditions(IndexCondition.newBuilder()
+        .setKey("eventType")
+        .setOperator("=")
+        .setValue("UserCreated")
+        .build())
+    .setConditionCombinator(ConditionCombinator.AND)
+    .build();
+adminClient.createIndex(request);
+```
+
+**Dropping an index:**
+```java
+DropIndexRequest request = DropIndexRequest.newBuilder()
+    .setBoundary("events-boundary")
+    .setName("idx_user_id")
+    .build();
+adminClient.dropIndex(request);
 ```

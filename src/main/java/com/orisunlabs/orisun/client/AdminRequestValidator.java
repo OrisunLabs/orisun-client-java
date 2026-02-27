@@ -172,4 +172,53 @@ public class AdminRequestValidator {
                     .addContext("operation", "getEventCount");
         }
     }
+
+    /**
+     * Validate a CreateIndexRequest
+     */
+    public static void validateCreateIndexRequest(CreateIndexRequest request) {
+        if (request == null) {
+            throw new OrisunException("CreateIndexRequest cannot be null")
+                    .addContext("operation", "createIndex");
+        }
+
+        if (request.getBoundary() == null || request.getBoundary().trim().isEmpty()) {
+            throw new OrisunException("Boundary is required")
+                    .addContext("operation", "createIndex");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new OrisunException("Index name is required")
+                    .addContext("operation", "createIndex")
+                    .addContext("boundary", request.getBoundary());
+        }
+
+        if (request.getFieldsCount() == 0) {
+            throw new OrisunException("At least one field is required")
+                    .addContext("operation", "createIndex")
+                    .addContext("boundary", request.getBoundary())
+                    .addContext("indexName", request.getName());
+        }
+    }
+
+    /**
+     * Validate a DropIndexRequest
+     */
+    public static void validateDropIndexRequest(DropIndexRequest request) {
+        if (request == null) {
+            throw new OrisunException("DropIndexRequest cannot be null")
+                    .addContext("operation", "dropIndex");
+        }
+
+        if (request.getBoundary() == null || request.getBoundary().trim().isEmpty()) {
+            throw new OrisunException("Boundary is required")
+                    .addContext("operation", "dropIndex");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new OrisunException("Index name is required")
+                    .addContext("operation", "dropIndex")
+                    .addContext("boundary", request.getBoundary());
+        }
+    }
 }
