@@ -112,6 +112,40 @@ public class RequestValidator {
     }
 
     /**
+     * Validate a GetLatestByCriteriaRequest
+     *
+     * @param request The request to validate
+     * @throws OrisunException if validation fails
+     */
+    public static void validateGetLatestByCriteriaRequest(Eventstore.GetLatestByCriteriaRequest request) {
+        if (request == null) {
+            throw new OrisunException("GetLatestByCriteriaRequest cannot be null")
+                    .addContext("operation", "getLatestByCriteria");
+        }
+
+        if (request.getBoundary() == null || request.getBoundary().trim().isEmpty()) {
+            throw new OrisunException("Boundary is required")
+                    .addContext("operation", "getLatestByCriteria")
+                    .addContext("request", "GetLatestByCriteriaRequest");
+        }
+
+        if (request.getCriteriaCount() == 0) {
+            throw new OrisunException("At least one criterion is required")
+                    .addContext("operation", "getLatestByCriteria")
+                    .addContext("boundary", request.getBoundary());
+        }
+
+        for (int i = 0; i < request.getCriteriaCount(); i++) {
+            if (request.getCriteria(i).getTagsCount() == 0) {
+                throw new OrisunException("Criterion at index " + i + " must include at least one tag")
+                        .addContext("operation", "getLatestByCriteria")
+                        .addContext("criterionIndex", i)
+                        .addContext("boundary", request.getBoundary());
+            }
+        }
+    }
+
+    /**
      * Validate a CatchUpSubscribeToEventStoreRequest
      *
      * @param request The request to validate

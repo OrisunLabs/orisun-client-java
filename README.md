@@ -181,6 +181,21 @@ try (OrisunClient client = OrisunClient.newBuilder()
             .setCount(10)
             .build()
     );
+
+    // Read latest carried-state context from one server-side snapshot
+    Eventstore.GetLatestByCriteriaResponse latest = client.getLatestByCriteria(
+        Eventstore.GetLatestByCriteriaRequest.newBuilder()
+            .setBoundary("users")
+            .addCriteria(Eventstore.Criterion.newBuilder()
+                .addTags(Eventstore.Tag.newBuilder()
+                    .setKey("userId")
+                    .setValue("user-123")
+                    .build())
+                .build())
+            .build()
+    );
+
+    Eventstore.Position expectedPosition = latest.getContextPosition();
 }
 ```
 

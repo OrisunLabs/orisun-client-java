@@ -141,6 +141,97 @@ class OrisunClientTest {
     }
 
     @Test
+    void testGetLatestByCriteria() throws Exception {
+        Eventstore.GetLatestByCriteriaRequest request = Eventstore.GetLatestByCriteriaRequest.newBuilder()
+                .setBoundary("accounts")
+                .addCriteria(Eventstore.Criterion.newBuilder()
+                        .addTags(Eventstore.Tag.newBuilder()
+                                .setKey("account_id")
+                                .setValue("acct-1")
+                                .build())
+                        .build())
+                .addCriteria(Eventstore.Criterion.newBuilder()
+                        .addTags(Eventstore.Tag.newBuilder()
+                                .setKey("account_id")
+                                .setValue("acct-2")
+                                .build())
+                        .build())
+                .build();
+
+        mockService.setNextLatestByCriteriaResponse(Eventstore.GetLatestByCriteriaResponse.newBuilder()
+                .addResults(Eventstore.LatestCriterionResult.newBuilder()
+                        .setCriterion(request.getCriteria(0))
+                        .setEvent(Eventstore.Event.newBuilder()
+                                .setEventId(UUID.randomUUID().toString())
+                                .setEventType("MoneyCredited")
+                                .setData("{\"account_id\":\"acct-1\",\"balance\":100}")
+                                .setPosition(Eventstore.Position.newBuilder()
+                                        .setCommitPosition(12)
+                                        .setPreparePosition(12))
+                                .build())
+                        .build())
+                .addResults(Eventstore.LatestCriterionResult.newBuilder()
+                        .setCriterion(request.getCriteria(1))
+                        .build())
+                .setContextPosition(Eventstore.Position.newBuilder()
+                        .setCommitPosition(12)
+                        .setPreparePosition(12))
+                .build());
+
+        Eventstore.GetLatestByCriteriaResponse result = client.getLatestByCriteria(request);
+
+        assertNotNull(result);
+        assertEquals(2, result.getResultsCount());
+        assertTrue(result.getResults(0).hasEvent());
+        assertFalse(result.getResults(1).hasEvent());
+        assertEquals(12, result.getContextPosition().getCommitPosition());
+        assertEquals(request, mockService.getLastGetLatestByCriteriaRequest());
+    }
+
+    @Test
+    void testGetLatestByCriteriaWithValidation() {
+        Eventstore.GetLatestByCriteriaRequest invalidRequest = Eventstore.GetLatestByCriteriaRequest.newBuilder()
+                .setBoundary("accounts")
+                .build();
+
+        OrisunException exception = assertThrows(OrisunException.class, () -> {
+            client.getLatestByCriteria(invalidRequest);
+        });
+
+        assertTrue(exception.getMessage().contains("At least one criterion is required"));
+        assertEquals("getLatestByCriteria", exception.getContext("operation"));
+    }
+
+    @Test
+    void testGetLatestByCriteriaAsync() throws Exception {
+        Eventstore.GetLatestByCriteriaRequest request = Eventstore.GetLatestByCriteriaRequest.newBuilder()
+                .setBoundary("accounts")
+                .addCriteria(Eventstore.Criterion.newBuilder()
+                        .addTags(Eventstore.Tag.newBuilder()
+                                .setKey("account_id")
+                                .setValue("acct-1")
+                                .build())
+                        .build())
+                .build();
+
+        mockService.setNextLatestByCriteriaResponse(Eventstore.GetLatestByCriteriaResponse.newBuilder()
+                .addResults(Eventstore.LatestCriterionResult.newBuilder()
+                        .setCriterion(request.getCriteria(0))
+                        .build())
+                .setContextPosition(Eventstore.Position.newBuilder()
+                        .setCommitPosition(-1)
+                        .setPreparePosition(-1))
+                .build());
+
+        CompletableFuture<Eventstore.GetLatestByCriteriaResponse> future = client.getLatestByCriteriaAsync(request);
+        Eventstore.GetLatestByCriteriaResponse result = future.get(5, TimeUnit.SECONDS);
+
+        assertNotNull(result);
+        assertEquals(1, result.getResultsCount());
+        assertEquals(-1, result.getContextPosition().getCommitPosition());
+    }
+
+    @Test
     void testSubscribeToEvents() throws Exception {
         CountDownLatch eventLatch = new CountDownLatch(1);
         List<Eventstore.Event> receivedEvents = new CopyOnWriteArrayList<>();
@@ -270,7 +361,9 @@ class OrisunClientTest {
     // Mock service implementation
     private static class MockEventStoreService extends EventStoreGrpc.EventStoreImplBase {
         private Eventstore.WriteResult nextWriteResult;
+        private Eventstore.GetLatestByCriteriaResponse nextLatestByCriteriaResponse;
         private Eventstore.SaveEventsRequest lastSaveEventsRequest;
+        private Eventstore.GetLatestByCriteriaRequest lastGetLatestByCriteriaRequest;
         private StreamObserver<Eventstore.Event> eventObserver;
         private boolean pingSuccess = true;
 
@@ -286,6 +379,14 @@ class OrisunClientTest {
             return lastSaveEventsRequest;
         }
 
+        void setNextLatestByCriteriaResponse(Eventstore.GetLatestByCriteriaResponse response) {
+            this.nextLatestByCriteriaResponse = response;
+        }
+
+        Eventstore.GetLatestByCriteriaRequest getLastGetLatestByCriteriaRequest() {
+            return lastGetLatestByCriteriaRequest;
+        }
+
         void sendEvent(Eventstore.Event event) {
             if (eventObserver != null) {
                 eventObserver.onNext(event);
@@ -297,6 +398,14 @@ class OrisunClientTest {
                                StreamObserver<Eventstore.WriteResult> responseObserver) {
             lastSaveEventsRequest = request;
             responseObserver.onNext(nextWriteResult);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void getLatestByCriteria(Eventstore.GetLatestByCriteriaRequest request,
+                                        StreamObserver<Eventstore.GetLatestByCriteriaResponse> responseObserver) {
+            lastGetLatestByCriteriaRequest = request;
+            responseObserver.onNext(nextLatestByCriteriaResponse);
             responseObserver.onCompleted();
         }
 

@@ -412,6 +412,30 @@ public class OrisunClient implements AutoCloseable {
         }
     }
 
+    public Eventstore.GetLatestByCriteriaResponse getLatestByCriteria(Eventstore.GetLatestByCriteriaRequest request)
+            throws OrisunException {
+        RequestValidator.validateGetLatestByCriteriaRequest(request);
+
+        logger.debug("Getting latest events by criteria from boundary: {}", request.getBoundary());
+
+        try {
+            final var response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getLatestByCriteria(request);
+
+            logger.debug("Successfully retrieved {} latest criteria results", response.getResultsCount());
+            return response;
+
+        } catch (StatusRuntimeException e) {
+            Map<String, Object> context = new HashMap<>();
+            context.put("operation", "getLatestByCriteria");
+            context.put("boundary", request.getBoundary());
+            context.put("statusCode", e.getStatus().getCode().name());
+
+            throw new OrisunException("Failed to get latest events by criteria", e, context);
+        }
+    }
+
     // Asynchronous methods
     public CompletableFuture<Eventstore.WriteResult> saveEventsAsync(Eventstore.SaveEventsRequest request) {
         CompletableFuture<Eventstore.WriteResult> future = new CompletableFuture<>();
@@ -430,6 +454,49 @@ public class OrisunClient implements AutoCloseable {
                             future.completeExceptionally(handleSaveException(e));
                         } else
                             future.completeExceptionally(new OrisunException("Failed to save events", t));
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        // Already completed in onNext
+                    }
+                });
+
+        return future;
+    }
+
+    public CompletableFuture<Eventstore.GetLatestByCriteriaResponse> getLatestByCriteriaAsync(
+            Eventstore.GetLatestByCriteriaRequest request) {
+        CompletableFuture<Eventstore.GetLatestByCriteriaResponse> future = new CompletableFuture<>();
+
+        try {
+            RequestValidator.validateGetLatestByCriteriaRequest(request);
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
+            return future;
+        }
+
+        asyncStub
+                .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                .getLatestByCriteria(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(Eventstore.GetLatestByCriteriaResponse result) {
+                        future.complete(result);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        if (t instanceof StatusRuntimeException e) {
+                            Map<String, Object> context = new HashMap<>();
+                            context.put("operation", "getLatestByCriteria");
+                            context.put("boundary", request.getBoundary());
+                            context.put("statusCode", e.getStatus().getCode().name());
+                            future.completeExceptionally(
+                                    new OrisunException("Failed to get latest events by criteria", e, context));
+                        } else {
+                            future.completeExceptionally(
+                                    new OrisunException("Failed to get latest events by criteria", t));
+                        }
                     }
 
                     @Override
