@@ -247,9 +247,32 @@ OrisunClient client = OrisunClient.newBuilder()
     .withLoadBalancingPolicy("round_robin")      // Load balancing policy
     .withKeepAliveTime(30000)                     // Keep-alive time in ms
     .withKeepAliveTimeout(10000)                  // Keep-alive timeout in ms
+    .withMaxInboundMessageSize(100 * 1024 * 1024) // Max inbound gRPC message size
+    .withFlowControlWindow(1024 * 1024)           // Netty HTTP/2 flow-control window
     .withLogging(true)                            // Enable logging
     .withLogLevel(com.orisunlabs.orisun.client.DefaultLogger.LogLevel.INFO)
     .build();
+```
+
+The defaults already use a 100 MB inbound message limit and a 1 MB Netty HTTP/2 flow-control window, matching Orisun's server-side high-throughput settings. Override them only when your deployment has a measured reason.
+
+### High-throughput writes
+
+Use one `OrisunClient` per target and reuse it. The client caches Orisun auth tokens after the first authenticated response, so hot `saveEvents` calls should use that cached token path rather than repeatedly re-establishing authentication.
+
+For burst imports or very high write volume, bound the number of concurrent `saveEvents` calls on that one client. In local SQLite gRPC benchmarks, roughly 512-1024 in-flight saves performed better than launching every pending write at once.
+
+```java
+ExecutorService executor = Executors.newFixedThreadPool(1024);
+List<CompletableFuture<Eventstore.WriteResult>> writes = requests.stream()
+    .map(request -> CompletableFuture.supplyAsync(() -> client.saveEvents(request), executor))
+    .toList();
+
+for (CompletableFuture<Eventstore.WriteResult> write : writes) {
+    write.join();
+}
+
+executor.shutdown();
 ```
 
 ## License

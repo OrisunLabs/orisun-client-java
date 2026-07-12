@@ -26,11 +26,11 @@ class OrisunClientTest {
     private MockEventStoreService mockService;
     private OrisunClient client;
     private Server server;
+    private int port;
 
     @BeforeEach
     void setUp() throws Exception {
         // Choose a free ephemeral port
-        final int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
@@ -48,6 +48,18 @@ class OrisunClientTest {
                 .newBuilder()
                 .withServer("localhost", port)
                 .build();
+    }
+
+    @Test
+    void testTransportTuningOptions() throws Exception {
+        try (OrisunClient tunedClient = OrisunClient
+                .newBuilder()
+                .withServer("localhost", port)
+                .withMaxInboundMessageSize(100 * 1024 * 1024)
+                .withFlowControlWindow(1024 * 1024)
+                .build()) {
+            assertNotNull(tunedClient);
+        }
     }
 
     @AfterEach

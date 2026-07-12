@@ -1,6 +1,7 @@
 package com.orisunlabs.orisun.client;
 
 import io.grpc.*;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import com.orisun.admin.AdminGrpc;
 import com.orisun.admin.AdminOuterClass.*;
 
@@ -21,6 +22,9 @@ public class AdminClient implements AutoCloseable {
     private final String password;
 
     public static class Builder {
+        private static final int DEFAULT_MAX_INBOUND_MESSAGE_SIZE = 100 * 1024 * 1024;
+        private static final int DEFAULT_FLOW_CONTROL_WINDOW = 1024 * 1024;
+
         private List<ServerAddress> servers = new ArrayList<>();
         private int timeoutSeconds = 30;
         private boolean useTls = false;
@@ -37,6 +41,8 @@ public class AdminClient implements AutoCloseable {
         private long keepAliveTimeMs = 30000;
         private long keepAliveTimeoutMs = 10000;
         private boolean keepAlivePermitWithoutCalls = true;
+        private int maxInboundMessageSize = DEFAULT_MAX_INBOUND_MESSAGE_SIZE;
+        private int flowControlWindow = DEFAULT_FLOW_CONTROL_WINDOW;
 
         // DNS and static target settings
         private String dnsTarget;
@@ -123,6 +129,22 @@ public class AdminClient implements AutoCloseable {
             return this;
         }
 
+        public Builder withMaxInboundMessageSize(int bytes) {
+            if (bytes <= 0) {
+                throw new IllegalArgumentException("max inbound message size must be positive");
+            }
+            this.maxInboundMessageSize = bytes;
+            return this;
+        }
+
+        public Builder withFlowControlWindow(int bytes) {
+            if (bytes <= 0) {
+                throw new IllegalArgumentException("flow control window must be positive");
+            }
+            this.flowControlWindow = bytes;
+            return this;
+        }
+
         public AdminClient build() {
             // Initialize logger
             Logger clientLogger;
@@ -144,9 +166,11 @@ public class AdminClient implements AutoCloseable {
                     String target = dnsTarget.startsWith("dns:///") ? dnsTarget : "dns:///" + dnsTarget;
                     channelBuilder = ManagedChannelBuilder.forTarget(target)
                             .defaultLoadBalancingPolicy(loadBalancingPolicy)
+                            .maxInboundMessageSize(maxInboundMessageSize)
                             .keepAliveTime(keepAliveTimeMs, TimeUnit.MILLISECONDS)
                             .keepAliveTimeout(keepAliveTimeoutMs, TimeUnit.MILLISECONDS)
                             .keepAliveWithoutCalls(keepAlivePermitWithoutCalls);
+                    applyNettyTransportDefaults(channelBuilder);
 
                     if (!useTls) {
                         channelBuilder.usePlaintext();
@@ -157,9 +181,11 @@ public class AdminClient implements AutoCloseable {
                     String target = staticTarget.startsWith("static:///") ? staticTarget : "static:///" + staticTarget;
                     channelBuilder = ManagedChannelBuilder.forTarget(target)
                             .defaultLoadBalancingPolicy(loadBalancingPolicy)
+                            .maxInboundMessageSize(maxInboundMessageSize)
                             .keepAliveTime(keepAliveTimeMs, TimeUnit.MILLISECONDS)
                             .keepAliveTimeout(keepAliveTimeoutMs, TimeUnit.MILLISECONDS)
                             .keepAliveWithoutCalls(keepAlivePermitWithoutCalls);
+                    applyNettyTransportDefaults(channelBuilder);
 
                     if (!useTls) {
                         channelBuilder.usePlaintext();
@@ -186,7 +212,9 @@ public class AdminClient implements AutoCloseable {
 
                     channelBuilder.keepAliveTime(keepAliveTimeMs, TimeUnit.MILLISECONDS)
                             .keepAliveTimeout(keepAliveTimeoutMs, TimeUnit.MILLISECONDS)
-                            .keepAliveWithoutCalls(keepAlivePermitWithoutCalls);
+                            .keepAliveWithoutCalls(keepAlivePermitWithoutCalls)
+                            .maxInboundMessageSize(maxInboundMessageSize);
+                    applyNettyTransportDefaults(channelBuilder);
 
                     // Add authentication interceptor
                     channelBuilder.intercept(new ClientInterceptor() {
@@ -255,6 +283,12 @@ public class AdminClient implements AutoCloseable {
                 first = false;
             }
             return sb.toString();
+        }
+
+        private void applyNettyTransportDefaults(ManagedChannelBuilder<?> channelBuilder) {
+            if (channelBuilder instanceof NettyChannelBuilder) {
+                ((NettyChannelBuilder) channelBuilder).flowControlWindow(flowControlWindow);
+            }
         }
     }
 
