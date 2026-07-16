@@ -25,7 +25,7 @@ Add the GitHub Packages repository and dependency to your `pom.xml`:
 <repositories>
     <repository>
         <id>github</id>
-        <url>https://maven.pkg.github.com/oexza/orisun-client-java</url>
+        <url>https://maven.pkg.github.com/OrisunLabs/orisun-client-java</url>
     </repository>
 </repositories>
 
@@ -55,7 +55,7 @@ Add to your `build.gradle`:
 ```groovy
 repositories {
     maven {
-        url = 'https://maven.pkg.github.com/oexza/orisun-client-java'
+        url = 'https://maven.pkg.github.com/OrisunLabs/orisun-client-java'
         credentials {
             username = project.findProperty('githubUsername') ?: System.getenv('GITHUB_USERNAME')
             password = project.findProperty('githubToken') ?: System.getenv('GITHUB_TOKEN')
@@ -79,7 +79,7 @@ githubToken=YOUR_GITHUB_TOKEN
 
 ### Option 2: Download from GitHub Releases
 
-If you prefer not to use GitHub Packages, you can download the JAR directly from [Releases](https://github.com/oexza/orisun-client-java/releases).
+If you prefer not to use GitHub Packages, you can download the JAR directly from [Releases](https://github.com/OrisunLabs/orisun-client-java/releases).
 
 Download the `orisun-java-client-{version}.jar` file and use one of the methods below.
 
@@ -123,7 +123,7 @@ dependencies {
 
 ```bash
 # Clone the repository
-git clone https://github.com/oexza/orisun-client-java.git
+git clone https://github.com/OrisunLabs/orisun-client-java.git
 cd orisun-client-java
 
 # Initialize submodules
@@ -281,4 +281,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Repository
 
-https://github.com/oexza/orisun-client-java
+https://github.com/OrisunLabs/orisun-client-java

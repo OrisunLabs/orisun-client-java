@@ -208,7 +208,7 @@ jobs:
             <repositories>
                 <repository>
                     <id>github</id>
-                    <url>https://maven.pkg.github.com/oexza/orisun-client-java</url>
+                    <url>https://maven.pkg.github.com/OrisunLabs/orisun-client-java</url>
                 </repository>
             </repositories>
 
@@ -238,7 +238,7 @@ jobs:
             ```groovy
             repositories {
                 maven {
-                    url = 'https://maven.pkg.github.com/oexza/orisun-client-java'
+                    url = 'https://maven.pkg.github.com/OrisunLabs/orisun-client-java'
                     credentials {
                         username = project.findProperty('githubUsername') ?: System.getenv('GITHUB_USERNAME')
                         password = project.findProperty('githubToken') ?: System.getenv('GITHUB_TOKEN')
@@ -277,7 +277,7 @@ jobs:
 
             ## Usage
 
-            See the [README](https://github.com/oexza/orisun-client-java) for detailed usage instructions.
+            See the [README](https://github.com/OrisunLabs/orisun-client-java) for detailed usage instructions.
 
             ### Quick Start - OrisunClient (Event Operations)
 

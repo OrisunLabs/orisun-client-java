@@ -79,7 +79,7 @@ publishing {
             pom {
                 name = 'Orisun Java Client'
                 description = 'Java client for the Orisun Event Store'
-                url = 'https://github.com/oexza/orisun-client-java'
+                url = 'https://github.com/OrisunLabs/orisun-client-java'
                 licenses {
                     license {
                         name = 'MIT License'
@@ -100,7 +100,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/oexza/orisun-client-java")
+            url = uri("https://maven.pkg.github.com/OrisunLabs/orisun-client-java")
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
