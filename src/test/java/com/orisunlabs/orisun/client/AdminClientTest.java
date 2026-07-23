@@ -70,6 +70,72 @@ class AdminClientTest {
     }
 
     @Test
+    void testBoundaryManagement() {
+        BoundaryPlacementInput placement = BoundaryPlacementInput.newBuilder()
+                .setBackend("postgres")
+                .setNamespace("orders")
+                .build();
+        BoundaryInfo created = BoundaryInfo.newBuilder()
+                .setName("orders")
+                .setPlacement(placement)
+                .setStatus(BoundaryLifecycleStatus.BOUNDARY_LIFECYCLE_STATUS_PROVISIONING)
+                .setOrigin(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_CREATED)
+                .build();
+        BoundaryInfo imported = created.toBuilder()
+                .setName("legacy_orders")
+                .setOrigin(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_IMPORTED)
+                .build();
+
+        mockService.setNextCreateBoundaryResponse(CreateBoundaryResponse.newBuilder().setBoundary(created).build());
+        mockService.setNextImportBoundaryResponse(ImportBoundaryResponse.newBuilder().setBoundary(imported).build());
+        mockService.setNextListBoundariesResponse(ListBoundariesResponse.newBuilder()
+                .addBoundaries(created)
+                .addBoundaries(imported)
+                .build());
+        mockService.setNextGetBoundaryResponse(GetBoundaryResponse.newBuilder().setBoundary(created).build());
+
+        BoundaryInfo createResult = client.createBoundary(CreateBoundaryRequest.newBuilder()
+                .setName("orders")
+                .setPlacement(placement)
+                .build());
+        BoundaryInfo importResult = client.importBoundary(ImportBoundaryRequest.newBuilder()
+                .setName("legacy_orders")
+                .setPlacement(placement)
+                .build());
+        List<BoundaryInfo> listResult = client.listBoundaries();
+        BoundaryInfo getResult = client.getBoundary("orders");
+
+        assertEquals(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_CREATED, createResult.getOrigin());
+        assertEquals(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_IMPORTED, importResult.getOrigin());
+        assertEquals(2, listResult.size());
+        assertEquals("orders", getResult.getName());
+        assertEquals("orders", mockService.getLastCreateBoundaryRequest().getName());
+        assertEquals("legacy_orders", mockService.getLastImportBoundaryRequest().getName());
+        assertEquals("orders", mockService.getLastGetBoundaryRequest().getName());
+    }
+
+    @Test
+    void testBoundaryManagementValidation() {
+        OrisunException createError = assertThrows(OrisunException.class, () ->
+                client.createBoundary(CreateBoundaryRequest.newBuilder().setName("orders").build()));
+        assertTrue(createError.getMessage().contains("Boundary placement is required"));
+        assertEquals("createBoundary", createError.getContext("operation"));
+
+        OrisunException importError = assertThrows(OrisunException.class, () ->
+                client.importBoundary(ImportBoundaryRequest.newBuilder()
+                        .setName("orders")
+                        .setPlacement(BoundaryPlacementInput.newBuilder().setBackend("postgres"))
+                        .build()));
+        assertTrue(importError.getMessage().contains("namespace is required"));
+
+        OrisunException getError = assertThrows(OrisunException.class, () -> client.getBoundary(""));
+        assertTrue(getError.getMessage().contains("Boundary name is required"));
+
+        OrisunException nullNameError = assertThrows(OrisunException.class, () -> client.getBoundary((String) null));
+        assertTrue(nullNameError.getMessage().contains("Boundary name is required"));
+    }
+
+    @Test
     void testCreateUser() throws Exception {
         // Prepare test data
         CreateUserRequest request = CreateUserRequest.newBuilder()
@@ -367,6 +433,9 @@ class AdminClientTest {
 
     // Mock service implementation
     private static class MockAdminService extends AdminGrpc.AdminImplBase {
+        private CreateBoundaryRequest lastCreateBoundaryRequest;
+        private ImportBoundaryRequest lastImportBoundaryRequest;
+        private GetBoundaryRequest lastGetBoundaryRequest;
         private CreateUserRequest lastCreateUserRequest;
         private DeleteUserRequest lastDeleteUserRequest;
         private ChangePasswordRequest lastChangePasswordRequest;
@@ -375,6 +444,10 @@ class AdminClientTest {
         private GetUserCountRequest lastGetUserCountRequest;
         private GetEventCountRequest lastGetEventCountRequest;
 
+        private CreateBoundaryResponse nextCreateBoundaryResponse;
+        private ImportBoundaryResponse nextImportBoundaryResponse;
+        private ListBoundariesResponse nextListBoundariesResponse;
+        private GetBoundaryResponse nextGetBoundaryResponse;
         private CreateUserResponse nextCreateUserResponse;
         private DeleteUserResponse nextDeleteUserResponse;
         private ChangePasswordResponse nextChangePasswordResponse;
@@ -382,6 +455,22 @@ class AdminClientTest {
         private ValidateCredentialsResponse nextValidateCredentialsResponse;
         private GetUserCountResponse nextGetUserCountResponse;
         private GetEventCountResponse nextGetEventCountResponse;
+
+        void setNextCreateBoundaryResponse(CreateBoundaryResponse response) {
+            this.nextCreateBoundaryResponse = response;
+        }
+
+        void setNextImportBoundaryResponse(ImportBoundaryResponse response) {
+            this.nextImportBoundaryResponse = response;
+        }
+
+        void setNextListBoundariesResponse(ListBoundariesResponse response) {
+            this.nextListBoundariesResponse = response;
+        }
+
+        void setNextGetBoundaryResponse(GetBoundaryResponse response) {
+            this.nextGetBoundaryResponse = response;
+        }
 
         void setNextCreateUserResponse(CreateUserResponse response) {
             this.nextCreateUserResponse = response;
@@ -411,6 +500,18 @@ class AdminClientTest {
             this.nextGetEventCountResponse = response;
         }
 
+        CreateBoundaryRequest getLastCreateBoundaryRequest() {
+            return lastCreateBoundaryRequest;
+        }
+
+        ImportBoundaryRequest getLastImportBoundaryRequest() {
+            return lastImportBoundaryRequest;
+        }
+
+        GetBoundaryRequest getLastGetBoundaryRequest() {
+            return lastGetBoundaryRequest;
+        }
+
         CreateUserRequest getLastCreateUserRequest() {
             return lastCreateUserRequest;
         }
@@ -437,6 +538,33 @@ class AdminClientTest {
 
         GetEventCountRequest getLastGetEventCountRequest() {
             return lastGetEventCountRequest;
+        }
+
+        @Override
+        public void createBoundary(CreateBoundaryRequest request, StreamObserver<CreateBoundaryResponse> responseObserver) {
+            lastCreateBoundaryRequest = request;
+            responseObserver.onNext(nextCreateBoundaryResponse);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void importBoundary(ImportBoundaryRequest request, StreamObserver<ImportBoundaryResponse> responseObserver) {
+            lastImportBoundaryRequest = request;
+            responseObserver.onNext(nextImportBoundaryResponse);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void listBoundaries(ListBoundariesRequest request, StreamObserver<ListBoundariesResponse> responseObserver) {
+            responseObserver.onNext(nextListBoundariesResponse);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void getBoundary(GetBoundaryRequest request, StreamObserver<GetBoundaryResponse> responseObserver) {
+            lastGetBoundaryRequest = request;
+            responseObserver.onNext(nextGetBoundaryResponse);
+            responseObserver.onCompleted();
         }
 
         @Override

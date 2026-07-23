@@ -328,6 +328,113 @@ public class AdminClient implements AutoCloseable {
         this.logger.info("AdminClient initialized with timeout: {} seconds", timeoutSeconds);
     }
 
+    // Boundary Management Operations
+
+    /**
+     * Record and provision a new boundary.
+     *
+     * @param request boundary definition and durable placement
+     * @return the catalog entry, initially in provisioning state
+     * @throws OrisunException when validation or the RPC fails
+     */
+    public BoundaryInfo createBoundary(CreateBoundaryRequest request) throws OrisunException {
+        AdminRequestValidator.validateCreateBoundaryRequest(request);
+
+        try {
+            CreateBoundaryResponse response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .createBoundary(request);
+            return response.getBoundary();
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "createBoundary");
+        }
+    }
+
+    /**
+     * Register and provision an existing physical boundary.
+     *
+     * @param request boundary definition and existing durable placement
+     * @return the imported catalog entry
+     * @throws OrisunException when validation or the RPC fails
+     */
+    public BoundaryInfo importBoundary(ImportBoundaryRequest request) throws OrisunException {
+        AdminRequestValidator.validateImportBoundaryRequest(request);
+
+        try {
+            ImportBoundaryResponse response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .importBoundary(request);
+            return response.getBoundary();
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "importBoundary");
+        }
+    }
+
+    /**
+     * List the event-backed boundary catalog.
+     *
+     * @param request empty list request
+     * @return all cataloged boundaries
+     * @throws OrisunException when validation or the RPC fails
+     */
+    public List<BoundaryInfo> listBoundaries(ListBoundariesRequest request) throws OrisunException {
+        AdminRequestValidator.validateListBoundariesRequest(request);
+
+        try {
+            ListBoundariesResponse response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .listBoundaries(request);
+            return response.getBoundariesList();
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "listBoundaries");
+        }
+    }
+
+    /**
+     * List the event-backed boundary catalog.
+     *
+     * @return all cataloged boundaries
+     * @throws OrisunException when the RPC fails
+     */
+    public List<BoundaryInfo> listBoundaries() throws OrisunException {
+        return listBoundaries(ListBoundariesRequest.newBuilder().build());
+    }
+
+    /**
+     * Get one boundary from the event-backed catalog.
+     *
+     * @param request boundary lookup request
+     * @return the cataloged boundary
+     * @throws OrisunException when validation or the RPC fails
+     */
+    public BoundaryInfo getBoundary(GetBoundaryRequest request) throws OrisunException {
+        AdminRequestValidator.validateGetBoundaryRequest(request);
+
+        try {
+            GetBoundaryResponse response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getBoundary(request);
+            return response.getBoundary();
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "getBoundary");
+        }
+    }
+
+    /**
+     * Get one boundary from the event-backed catalog.
+     *
+     * @param name boundary name
+     * @return the cataloged boundary
+     * @throws OrisunException when validation or the RPC fails
+     */
+    public BoundaryInfo getBoundary(String name) throws OrisunException {
+        if (name == null) {
+            throw new OrisunException("Boundary name is required")
+                    .addContext("operation", "getBoundary");
+        }
+        return getBoundary(GetBoundaryRequest.newBuilder().setName(name).build());
+    }
+
     // User Management Operations
 
     /**

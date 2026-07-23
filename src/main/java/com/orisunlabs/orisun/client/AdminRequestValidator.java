@@ -10,6 +10,78 @@ import java.util.UUID;
 public class AdminRequestValidator {
 
     /**
+     * Validate a CreateBoundaryRequest.
+     */
+    public static void validateCreateBoundaryRequest(CreateBoundaryRequest request) {
+        if (request == null) {
+            throw new OrisunException("CreateBoundaryRequest cannot be null")
+                    .addContext("operation", "createBoundary");
+        }
+        validateBoundaryDefinition(request.getName(), request.hasPlacement(), request.getPlacement(), "createBoundary");
+    }
+
+    /**
+     * Validate an ImportBoundaryRequest.
+     */
+    public static void validateImportBoundaryRequest(ImportBoundaryRequest request) {
+        if (request == null) {
+            throw new OrisunException("ImportBoundaryRequest cannot be null")
+                    .addContext("operation", "importBoundary");
+        }
+        validateBoundaryDefinition(request.getName(), request.hasPlacement(), request.getPlacement(), "importBoundary");
+    }
+
+    private static void validateBoundaryDefinition(
+            String name,
+            boolean hasPlacement,
+            BoundaryPlacementInput placement,
+            String operation) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new OrisunException("Boundary name is required")
+                    .addContext("operation", operation);
+        }
+        if (!hasPlacement) {
+            throw new OrisunException("Boundary placement is required")
+                    .addContext("operation", operation)
+                    .addContext("boundary", name);
+        }
+        if (placement.getBackend().trim().isEmpty()) {
+            throw new OrisunException("Boundary placement backend is required")
+                    .addContext("operation", operation)
+                    .addContext("boundary", name);
+        }
+        if (placement.getNamespace().trim().isEmpty()) {
+            throw new OrisunException("Boundary placement namespace is required")
+                    .addContext("operation", operation)
+                    .addContext("boundary", name);
+        }
+    }
+
+    /**
+     * Validate a ListBoundariesRequest.
+     */
+    public static void validateListBoundariesRequest(ListBoundariesRequest request) {
+        if (request == null) {
+            throw new OrisunException("ListBoundariesRequest cannot be null")
+                    .addContext("operation", "listBoundaries");
+        }
+    }
+
+    /**
+     * Validate a GetBoundaryRequest.
+     */
+    public static void validateGetBoundaryRequest(GetBoundaryRequest request) {
+        if (request == null) {
+            throw new OrisunException("GetBoundaryRequest cannot be null")
+                    .addContext("operation", "getBoundary");
+        }
+        if (request.getName().trim().isEmpty()) {
+            throw new OrisunException("Boundary name is required")
+                    .addContext("operation", "getBoundary");
+        }
+    }
+
+    /**
      * Validate a CreateUserRequest
      */
     public static void validateCreateUserRequest(CreateUserRequest request) {

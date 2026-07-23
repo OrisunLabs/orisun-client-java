@@ -199,7 +199,7 @@ try (OrisunClient client = OrisunClient.newBuilder()
 }
 ```
 
-### AdminClient - User Management
+### AdminClient - Boundary Management and Users
 
 ```java
 import com.orisunlabs.orisun.client.AdminClient;
@@ -210,6 +210,27 @@ try (AdminClient adminClient = AdminClient.newBuilder()
     .withServer("localhost", 5005)
     .withBasicAuth("admin", "changeit")
     .build()) {
+
+    BoundaryPlacementInput placement = BoundaryPlacementInput.newBuilder()
+        .setBackend("postgres")
+        .setNamespace("orders")
+        .build();
+
+    BoundaryInfo boundary = adminClient.createBoundary(
+        CreateBoundaryRequest.newBuilder()
+            .setName("orders")
+            .setDescription("Order lifecycle events")
+            .setPlacement(placement)
+            .build()
+    );
+
+    while (boundary.getStatus()
+            == BoundaryLifecycleStatus.BOUNDARY_LIFECYCLE_STATUS_PROVISIONING) {
+        Thread.sleep(100);
+        boundary = adminClient.getBoundary("orders");
+    }
+
+    List<BoundaryInfo> boundaries = adminClient.listBoundaries();
 
     // Create a user
     CreateUserRequest createRequest = CreateUserRequest.newBuilder()
@@ -233,6 +254,10 @@ try (AdminClient adminClient = AdminClient.newBuilder()
     );
 }
 ```
+
+Use `importBoundary` instead of `createBoundary` when the physical boundary
+already exists. Both operations return the durable catalog entry and reject
+duplicate names with gRPC `ALREADY_EXISTS`.
 
 ### Advanced Configuration
 
