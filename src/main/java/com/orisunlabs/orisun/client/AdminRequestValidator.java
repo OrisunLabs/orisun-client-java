@@ -20,17 +20,6 @@ public class AdminRequestValidator {
         validateBoundaryDefinition(request.getName(), request.hasPlacement(), request.getPlacement(), "createBoundary");
     }
 
-    /**
-     * Validate an ImportBoundaryRequest.
-     */
-    public static void validateImportBoundaryRequest(ImportBoundaryRequest request) {
-        if (request == null) {
-            throw new OrisunException("ImportBoundaryRequest cannot be null")
-                    .addContext("operation", "importBoundary");
-        }
-        validateBoundaryDefinition(request.getName(), request.hasPlacement(), request.getPlacement(), "importBoundary");
-    }
-
     private static void validateBoundaryDefinition(
             String name,
             boolean hasPlacement,

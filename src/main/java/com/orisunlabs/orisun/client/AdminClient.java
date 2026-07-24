@@ -331,7 +331,7 @@ public class AdminClient implements AutoCloseable {
     // Boundary Management Operations
 
     /**
-     * Record and provision a new boundary.
+     * Record a catalog definition and idempotently provision its physical storage.
      *
      * @param request boundary definition and durable placement
      * @return the catalog entry, initially in provisioning state
@@ -347,26 +347,6 @@ public class AdminClient implements AutoCloseable {
             return response.getBoundary();
         } catch (StatusRuntimeException e) {
             throw handleException(e, "createBoundary");
-        }
-    }
-
-    /**
-     * Register and provision an existing physical boundary.
-     *
-     * @param request boundary definition and existing durable placement
-     * @return the imported catalog entry
-     * @throws OrisunException when validation or the RPC fails
-     */
-    public BoundaryInfo importBoundary(ImportBoundaryRequest request) throws OrisunException {
-        AdminRequestValidator.validateImportBoundaryRequest(request);
-
-        try {
-            ImportBoundaryResponse response = blockingStub
-                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
-                    .importBoundary(request);
-            return response.getBoundary();
-        } catch (StatusRuntimeException e) {
-            throw handleException(e, "importBoundary");
         }
     }
 

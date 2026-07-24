@@ -255,9 +255,9 @@ try (AdminClient adminClient = AdminClient.newBuilder()
 }
 ```
 
-Use `importBoundary` instead of `createBoundary` when the physical boundary
-already exists. Both operations return the durable catalog entry and reject
-duplicate names with gRPC `ALREADY_EXISTS`.
+Set `existedBeforeCatalog` on `CreateBoundaryRequest` when the physical
+boundary already exists. Boundary names remain unique, so repeated creates are
+rejected with gRPC `ALREADY_EXISTS`.
 
 ### Advanced Configuration
 

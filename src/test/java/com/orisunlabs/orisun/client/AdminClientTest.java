@@ -79,18 +79,16 @@ class AdminClientTest {
                 .setName("orders")
                 .setPlacement(placement)
                 .setStatus(BoundaryLifecycleStatus.BOUNDARY_LIFECYCLE_STATUS_PROVISIONING)
-                .setOrigin(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_CREATED)
                 .build();
-        BoundaryInfo imported = created.toBuilder()
+        BoundaryInfo existing = created.toBuilder()
                 .setName("legacy_orders")
-                .setOrigin(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_IMPORTED)
+                .setExistedBeforeCatalog(true)
                 .build();
 
         mockService.setNextCreateBoundaryResponse(CreateBoundaryResponse.newBuilder().setBoundary(created).build());
-        mockService.setNextImportBoundaryResponse(ImportBoundaryResponse.newBuilder().setBoundary(imported).build());
         mockService.setNextListBoundariesResponse(ListBoundariesResponse.newBuilder()
                 .addBoundaries(created)
-                .addBoundaries(imported)
+                .addBoundaries(existing)
                 .build());
         mockService.setNextGetBoundaryResponse(GetBoundaryResponse.newBuilder().setBoundary(created).build());
 
@@ -98,19 +96,21 @@ class AdminClientTest {
                 .setName("orders")
                 .setPlacement(placement)
                 .build());
-        BoundaryInfo importResult = client.importBoundary(ImportBoundaryRequest.newBuilder()
+        mockService.setNextCreateBoundaryResponse(CreateBoundaryResponse.newBuilder().setBoundary(existing).build());
+        BoundaryInfo existingResult = client.createBoundary(CreateBoundaryRequest.newBuilder()
                 .setName("legacy_orders")
                 .setPlacement(placement)
+                .setExistedBeforeCatalog(true)
                 .build());
         List<BoundaryInfo> listResult = client.listBoundaries();
         BoundaryInfo getResult = client.getBoundary("orders");
 
-        assertEquals(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_CREATED, createResult.getOrigin());
-        assertEquals(BoundaryRegistrationOrigin.BOUNDARY_REGISTRATION_ORIGIN_IMPORTED, importResult.getOrigin());
+        assertFalse(createResult.getExistedBeforeCatalog());
+        assertTrue(existingResult.getExistedBeforeCatalog());
         assertEquals(2, listResult.size());
         assertEquals("orders", getResult.getName());
-        assertEquals("orders", mockService.getLastCreateBoundaryRequest().getName());
-        assertEquals("legacy_orders", mockService.getLastImportBoundaryRequest().getName());
+        assertEquals("legacy_orders", mockService.getLastCreateBoundaryRequest().getName());
+        assertTrue(mockService.getLastCreateBoundaryRequest().getExistedBeforeCatalog());
         assertEquals("orders", mockService.getLastGetBoundaryRequest().getName());
     }
 
@@ -121,12 +121,13 @@ class AdminClientTest {
         assertTrue(createError.getMessage().contains("Boundary placement is required"));
         assertEquals("createBoundary", createError.getContext("operation"));
 
-        OrisunException importError = assertThrows(OrisunException.class, () ->
-                client.importBoundary(ImportBoundaryRequest.newBuilder()
+        OrisunException existingStorageError = assertThrows(OrisunException.class, () ->
+                client.createBoundary(CreateBoundaryRequest.newBuilder()
                         .setName("orders")
                         .setPlacement(BoundaryPlacementInput.newBuilder().setBackend("postgres"))
+                        .setExistedBeforeCatalog(true)
                         .build()));
-        assertTrue(importError.getMessage().contains("namespace is required"));
+        assertTrue(existingStorageError.getMessage().contains("namespace is required"));
 
         OrisunException getError = assertThrows(OrisunException.class, () -> client.getBoundary(""));
         assertTrue(getError.getMessage().contains("Boundary name is required"));
@@ -434,7 +435,6 @@ class AdminClientTest {
     // Mock service implementation
     private static class MockAdminService extends AdminGrpc.AdminImplBase {
         private CreateBoundaryRequest lastCreateBoundaryRequest;
-        private ImportBoundaryRequest lastImportBoundaryRequest;
         private GetBoundaryRequest lastGetBoundaryRequest;
         private CreateUserRequest lastCreateUserRequest;
         private DeleteUserRequest lastDeleteUserRequest;
@@ -445,7 +445,6 @@ class AdminClientTest {
         private GetEventCountRequest lastGetEventCountRequest;
 
         private CreateBoundaryResponse nextCreateBoundaryResponse;
-        private ImportBoundaryResponse nextImportBoundaryResponse;
         private ListBoundariesResponse nextListBoundariesResponse;
         private GetBoundaryResponse nextGetBoundaryResponse;
         private CreateUserResponse nextCreateUserResponse;
@@ -458,10 +457,6 @@ class AdminClientTest {
 
         void setNextCreateBoundaryResponse(CreateBoundaryResponse response) {
             this.nextCreateBoundaryResponse = response;
-        }
-
-        void setNextImportBoundaryResponse(ImportBoundaryResponse response) {
-            this.nextImportBoundaryResponse = response;
         }
 
         void setNextListBoundariesResponse(ListBoundariesResponse response) {
@@ -504,10 +499,6 @@ class AdminClientTest {
             return lastCreateBoundaryRequest;
         }
 
-        ImportBoundaryRequest getLastImportBoundaryRequest() {
-            return lastImportBoundaryRequest;
-        }
-
         GetBoundaryRequest getLastGetBoundaryRequest() {
             return lastGetBoundaryRequest;
         }
@@ -544,13 +535,6 @@ class AdminClientTest {
         public void createBoundary(CreateBoundaryRequest request, StreamObserver<CreateBoundaryResponse> responseObserver) {
             lastCreateBoundaryRequest = request;
             responseObserver.onNext(nextCreateBoundaryResponse);
-            responseObserver.onCompleted();
-        }
-
-        @Override
-        public void importBoundary(ImportBoundaryRequest request, StreamObserver<ImportBoundaryResponse> responseObserver) {
-            lastImportBoundaryRequest = request;
-            responseObserver.onNext(nextImportBoundaryResponse);
             responseObserver.onCompleted();
         }
 
