@@ -370,6 +370,19 @@ class OrisunClientTest {
         assertEquals("ping", exception.getContext("operation"));
     }
 
+    @Test
+    void testGetServerInfo() throws Exception {
+        Eventstore.GetServerInfoResponse info = client.getServerInfo();
+
+        assertEquals("0.10.0", info.getVersion());
+        assertEquals(Eventstore.StorageBackend.STORAGE_BACKEND_SQLITE, info.getBackend());
+        assertEquals("node-1", info.getNodeId());
+        assertEquals(List.of(
+                Eventstore.ServerCapability.SERVER_CAPABILITY_COMMAND_CONTEXT_CONSISTENCY,
+                Eventstore.ServerCapability.SERVER_CAPABILITY_GRPC_HEALTH
+        ), info.getCapabilitiesList());
+    }
+
     // Mock service implementation
     private static class MockEventStoreService extends EventStoreGrpc.EventStoreImplBase {
         private Eventstore.WriteResult nextWriteResult;
@@ -467,6 +480,21 @@ class OrisunClientTest {
             } else {
                 responseObserver.onError(new RuntimeException("Ping failed"));
             }
+        }
+
+        @Override
+        public void getServerInfo(Eventstore.GetServerInfoRequest request,
+                                  StreamObserver<Eventstore.GetServerInfoResponse> responseObserver) {
+            responseObserver.onNext(Eventstore.GetServerInfoResponse.newBuilder()
+                    .setVersion("0.10.0")
+                    .setGitCommit("abc123")
+                    .setBuildTime("2026-07-25T12:00:00Z")
+                    .setBackend(Eventstore.StorageBackend.STORAGE_BACKEND_SQLITE)
+                    .setNodeId("node-1")
+                    .addCapabilities(Eventstore.ServerCapability.SERVER_CAPABILITY_COMMAND_CONTEXT_CONSISTENCY)
+                    .addCapabilities(Eventstore.ServerCapability.SERVER_CAPABILITY_GRPC_HEALTH)
+                    .build());
+            responseObserver.onCompleted();
         }
     }
 }

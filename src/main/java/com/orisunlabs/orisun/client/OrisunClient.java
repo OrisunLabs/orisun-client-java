@@ -580,6 +580,26 @@ public class OrisunClient implements AutoCloseable {
     }
 
     /**
+     * Return build, backend, node identity, and capability information for the
+     * server that handles this call.
+     */
+    public Eventstore.GetServerInfoResponse getServerInfo() throws OrisunException {
+        logger.debug("Getting server information");
+
+        try {
+            final var request = Eventstore.GetServerInfoRequest.newBuilder().build();
+            return blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getServerInfo(request);
+        } catch (StatusRuntimeException e) {
+            Map<String, Object> context = new HashMap<>();
+            context.put("operation", "getServerInfo");
+            context.put("statusCode", e.getStatus().getCode().name());
+            throw new OrisunException("Failed to get server info", e, context);
+        }
+    }
+
+    /**
      * Create a new index on a boundary.
      */
     public void createIndex(Eventstore.CreateIndexRequest request) throws OrisunException {
