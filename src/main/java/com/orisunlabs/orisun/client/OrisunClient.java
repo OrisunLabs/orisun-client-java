@@ -650,6 +650,55 @@ public class OrisunClient implements AutoCloseable {
     }
 
     /**
+     * List Orisun-managed indexes for a boundary.
+     */
+    public Eventstore.ListIndexesResponse listIndexes(String boundary) throws OrisunException {
+        if (boundary == null || boundary.trim().isEmpty()) {
+            throw new OrisunException("Boundary is required").addContext("operation", "listIndexes");
+        }
+        try {
+            return blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .listIndexes(Eventstore.ListIndexesRequest.newBuilder().setBoundary(boundary).build());
+        } catch (StatusRuntimeException e) {
+            Map<String, Object> context = new HashMap<>();
+            context.put("operation", "listIndexes");
+            context.put("boundary", boundary);
+            context.put("statusCode", e.getStatus().getCode().name());
+            throw new OrisunException("Failed to list indexes", e, context);
+        }
+    }
+
+    /**
+     * Get one Orisun-managed index definition.
+     */
+    public Eventstore.GetIndexResponse getIndex(String boundary, String name) throws OrisunException {
+        if (boundary == null || boundary.trim().isEmpty()) {
+            throw new OrisunException("Boundary is required").addContext("operation", "getIndex");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            throw new OrisunException("Index name is required")
+                    .addContext("operation", "getIndex")
+                    .addContext("boundary", boundary);
+        }
+        try {
+            return blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getIndex(Eventstore.GetIndexRequest.newBuilder()
+                            .setBoundary(boundary)
+                            .setName(name)
+                            .build());
+        } catch (StatusRuntimeException e) {
+            Map<String, Object> context = new HashMap<>();
+            context.put("operation", "getIndex");
+            context.put("boundary", boundary);
+            context.put("indexName", name);
+            context.put("statusCode", e.getStatus().getCode().name());
+            throw new OrisunException("Failed to get index", e, context);
+        }
+    }
+
+    /**
      * Check if the client is connected to the server
      *
      * @return true if connected, false otherwise
