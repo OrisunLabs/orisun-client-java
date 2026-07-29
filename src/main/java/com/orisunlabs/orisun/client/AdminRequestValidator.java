@@ -177,6 +177,25 @@ public class AdminRequestValidator {
     }
 
     /**
+     * Validate a SetUserBoundaryPermissionsRequest.
+     */
+    public static void validateSetUserBoundaryPermissionsRequest(
+            SetUserBoundaryPermissionsRequest request) {
+        if (request == null) {
+            throw new OrisunException("SetUserBoundaryPermissionsRequest cannot be null")
+                    .addContext("operation", "setUserBoundaryPermissions");
+        }
+        if (request.getUserId().trim().isEmpty()) {
+            throw new OrisunException("User ID is required")
+                    .addContext("operation", "setUserBoundaryPermissions");
+        }
+        if (request.getBoundary().trim().isEmpty()) {
+            throw new OrisunException("Boundary is required")
+                    .addContext("operation", "setUserBoundaryPermissions");
+        }
+    }
+
+    /**
      * Validate a ListUsersRequest
      */
     public static void validateListUsersRequest(ListUsersRequest request) {

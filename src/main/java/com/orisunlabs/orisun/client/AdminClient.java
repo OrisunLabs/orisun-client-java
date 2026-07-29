@@ -481,6 +481,23 @@ public class AdminClient implements AutoCloseable {
     }
 
     /**
+     * Replace one user's permissions for a boundary.
+     */
+    public AdminUser setUserBoundaryPermissions(
+            SetUserBoundaryPermissionsRequest request) throws OrisunException {
+        AdminRequestValidator.validateSetUserBoundaryPermissionsRequest(request);
+
+        try {
+            SetUserBoundaryPermissionsResponse response = blockingStub
+                    .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .setUserBoundaryPermissions(request);
+            return response.getUser();
+        } catch (StatusRuntimeException e) {
+            throw handleException(e, "setUserBoundaryPermissions");
+        }
+    }
+
+    /**
      * List all users
      */
     public List<AdminUser> listUsers(ListUsersRequest request) throws OrisunException {
