@@ -120,6 +120,53 @@ class OrisunClientTest {
     }
 
     @Test
+    void testSaveEventsV2() throws Exception {
+        Eventstore.SaveEventsV2Request request = Eventstore.SaveEventsV2Request.newBuilder()
+                .setBoundary("shipping")
+                .addEvents(Eventstore.EventToSave.newBuilder()
+                        .setEventId(UUID.randomUUID().toString())
+                        .setEventType("ShipmentDispatched")
+                        .setData("{\"shipmentId\":\"shipment-9\"}")
+                        .build())
+                .addConsistency(Eventstore.ConsistencyObservation.newBuilder()
+                        .setQuery(Eventstore.Query.newBuilder()
+                                .addCriteria(Eventstore.Criterion.newBuilder()
+                                        .addTags(Eventstore.Tag.newBuilder()
+                                                .setKey("shipmentId")
+                                                .setValue("shipment-9"))))
+                        .setPosition(Eventstore.Position.newBuilder()
+                                .setCommitPosition(12)
+                                .setPreparePosition(12)))
+                .build();
+
+        mockService.setNextWriteResult(Eventstore.WriteResult.newBuilder()
+                .setLogPosition(Eventstore.Position.newBuilder()
+                        .setCommitPosition(13)
+                        .setPreparePosition(13))
+                .build());
+
+        Eventstore.WriteResult result = client.saveEventsV2(request);
+
+        assertEquals(13, result.getLogPosition().getCommitPosition());
+        assertEquals(request, mockService.getLastSaveEventsV2Request());
+    }
+
+    @Test
+    void testSaveEventsV2RejectsIncompleteObservation() {
+        Eventstore.SaveEventsV2Request request = Eventstore.SaveEventsV2Request.newBuilder()
+                .setBoundary("shipping")
+                .addEvents(Eventstore.EventToSave.newBuilder()
+                        .setEventId(UUID.randomUUID().toString())
+                        .setEventType("ShipmentDispatched")
+                        .setData("{}"))
+                .addConsistency(Eventstore.ConsistencyObservation.newBuilder())
+                .build();
+
+        OrisunException exception = assertThrows(OrisunException.class, () -> client.saveEventsV2(request));
+        assertTrue(exception.getMessage().contains("must include query and position"));
+    }
+
+    @Test
     void testSaveEventsAsync() throws Exception {
         // Prepare test data
         String eventId = UUID.randomUUID().toString();
@@ -388,6 +435,7 @@ class OrisunClientTest {
         private Eventstore.WriteResult nextWriteResult;
         private Eventstore.GetLatestByCriteriaResponse nextLatestByCriteriaResponse;
         private Eventstore.SaveEventsRequest lastSaveEventsRequest;
+        private Eventstore.SaveEventsV2Request lastSaveEventsV2Request;
         private Eventstore.GetLatestByCriteriaRequest lastGetLatestByCriteriaRequest;
         private StreamObserver<Eventstore.Event> eventObserver;
         private boolean pingSuccess = true;
@@ -402,6 +450,10 @@ class OrisunClientTest {
 
         Eventstore.SaveEventsRequest getLastSaveEventsRequest() {
             return lastSaveEventsRequest;
+        }
+
+        Eventstore.SaveEventsV2Request getLastSaveEventsV2Request() {
+            return lastSaveEventsV2Request;
         }
 
         void setNextLatestByCriteriaResponse(Eventstore.GetLatestByCriteriaResponse response) {
@@ -422,6 +474,14 @@ class OrisunClientTest {
         public void saveEvents(Eventstore.SaveEventsRequest request,
                                StreamObserver<Eventstore.WriteResult> responseObserver) {
             lastSaveEventsRequest = request;
+            responseObserver.onNext(nextWriteResult);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void saveEventsV2(Eventstore.SaveEventsV2Request request,
+                                 StreamObserver<Eventstore.WriteResult> responseObserver) {
+            lastSaveEventsV2Request = request;
             responseObserver.onNext(nextWriteResult);
             responseObserver.onCompleted();
         }

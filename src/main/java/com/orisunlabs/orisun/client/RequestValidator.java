@@ -2,6 +2,7 @@ package com.orisunlabs.orisun.client;
 
 import com.orisun.eventstore.Eventstore;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -20,24 +21,72 @@ public class RequestValidator {
             throw new OrisunException("SaveEventsRequest cannot be null");
         }
 
-        // Validate boundary
-        if (request.getBoundary() == null || request.getBoundary().trim().isEmpty()) {
+        validateSaveRequest(
+                request.getBoundary(), request.getEventsList(), "saveEvents", "SaveEventsRequest");
+    }
+
+    /**
+     * Validate a SaveEventsV2Request.
+     *
+     * @param request The request to validate
+     * @throws OrisunException if validation fails
+     */
+    public static void validateSaveEventsV2Request(Eventstore.SaveEventsV2Request request) {
+        if (request == null) {
+            throw new OrisunException("SaveEventsV2Request cannot be null")
+                    .addContext("operation", "saveEventsV2");
+        }
+        validateSaveRequest(
+                request.getBoundary(), request.getEventsList(), "saveEventsV2", "SaveEventsV2Request");
+        for (int observationIndex = 0; observationIndex < request.getConsistencyCount(); observationIndex++) {
+            Eventstore.ConsistencyObservation observation = request.getConsistency(observationIndex);
+            if (!observation.hasQuery() || !observation.hasPosition()) {
+                throw new OrisunException("Consistency observation at index " + observationIndex
+                        + " must include query and position")
+                        .addContext("operation", "saveEventsV2")
+                        .addContext("observationIndex", observationIndex)
+                        .addContext("boundary", request.getBoundary());
+            }
+            if (observation.getQuery().getCriteriaCount() == 0) {
+                throw new OrisunException("Consistency observation at index " + observationIndex
+                        + " must include at least one criterion")
+                        .addContext("operation", "saveEventsV2")
+                        .addContext("observationIndex", observationIndex)
+                        .addContext("boundary", request.getBoundary());
+            }
+            for (int criterionIndex = 0;
+                 criterionIndex < observation.getQuery().getCriteriaCount();
+                 criterionIndex++) {
+                if (observation.getQuery().getCriteria(criterionIndex).getTagsCount() == 0) {
+                    throw new OrisunException("Criterion at index " + criterionIndex
+                            + " in consistency observation " + observationIndex
+                            + " must include at least one tag")
+                            .addContext("operation", "saveEventsV2")
+                            .addContext("observationIndex", observationIndex)
+                            .addContext("criterionIndex", criterionIndex)
+                            .addContext("boundary", request.getBoundary());
+                }
+            }
+        }
+    }
+
+    private static void validateSaveRequest(
+            String boundary,
+            List<Eventstore.EventToSave> events,
+            String operation,
+            String requestName) {
+        if (boundary.trim().isEmpty()) {
             throw new OrisunException("Boundary is required")
-                    .addContext("operation", "saveEvents")
-                    .addContext("request", "SaveEventsRequest");
+                    .addContext("operation", operation)
+                    .addContext("request", requestName);
         }
-
-        // Validate events
-        if (request.getEventsCount() == 0) {
+        if (events.isEmpty()) {
             throw new OrisunException("At least one event is required")
-                    .addContext("operation", "saveEvents")
-                    .addContext("boundary", request.getBoundary());
+                    .addContext("operation", operation)
+                    .addContext("boundary", boundary);
         }
-
-        // Validate each event
-        for (int i = 0; i < request.getEventsCount(); i++) {
-            Eventstore.EventToSave event = request.getEvents(i);
-            validateEventToSave(event, i, request.getBoundary());
+        for (int i = 0; i < events.size(); i++) {
+            validateEventToSave(events.get(i), i, boundary, operation);
         }
     }
 
@@ -49,10 +98,14 @@ public class RequestValidator {
      * @param boundary The boundary for error context
      * @throws OrisunException if validation fails
      */
-    private static void validateEventToSave(Eventstore.EventToSave event, int index, String boundary) {
+    private static void validateEventToSave(
+            Eventstore.EventToSave event,
+            int index,
+            String boundary,
+            String operation) {
         if (event.getEventId() == null || event.getEventId().trim().isEmpty()) {
             throw new OrisunException("Event at index " + index + " is missing eventId")
-                    .addContext("operation", "saveEvents")
+                    .addContext("operation", operation)
                     .addContext("eventIndex", index)
                     .addContext("boundary", boundary);
         }
@@ -62,7 +115,7 @@ public class RequestValidator {
             UUID.fromString(event.getEventId());
         } catch (IllegalArgumentException e) {
             throw new OrisunException("Event at index " + index + " has invalid eventId format")
-                    .addContext("operation", "saveEvents")
+                    .addContext("operation", operation)
                     .addContext("eventIndex", index)
                     .addContext("eventId", event.getEventId())
                     .addContext("boundary", boundary);
@@ -70,14 +123,14 @@ public class RequestValidator {
 
         if (event.getEventType() == null || event.getEventType().trim().isEmpty()) {
             throw new OrisunException("Event at index " + index + " is missing eventType")
-                    .addContext("operation", "saveEvents")
+                    .addContext("operation", operation)
                     .addContext("eventIndex", index)
                     .addContext("boundary", boundary);
         }
 
         if (event.getData() == null || event.getData().trim().isEmpty()) {
             throw new OrisunException("Event at index " + index + " is missing data")
-                    .addContext("operation", "saveEvents")
+                    .addContext("operation", operation)
                     .addContext("eventIndex", index)
                     .addContext("boundary", boundary);
         }

@@ -385,6 +385,8 @@ public class OrisunClient implements AutoCloseable {
     }
 
     // Synchronous methods
+    /** @deprecated Use {@link #saveEventsV2(Eventstore.SaveEventsV2Request)}. */
+    @Deprecated
     public Eventstore.WriteResult saveEvents(final Eventstore.SaveEventsRequest request) throws Exception {
         // Validate request
         RequestValidator.validateSaveEventsRequest(request);
@@ -401,13 +403,29 @@ public class OrisunClient implements AutoCloseable {
             return result;
 
         } catch (StatusRuntimeException e) {
-            throw handleSaveException(e);
+            throw handleSaveException(e, "saveEvents");
         }
     }
 
-    private Exception handleSaveException(StatusRuntimeException e) {
+    public Eventstore.WriteResult saveEventsV2(final Eventstore.SaveEventsV2Request request) throws Exception {
+        RequestValidator.validateSaveEventsV2Request(request);
+
+        logger.debug("Saving {} events in boundary '{}' with {} consistency observations",
+                request.getEventsCount(), request.getBoundary(), request.getConsistencyCount());
+
+        try {
+            Eventstore.WriteResult result = blockingStub
+                    .saveEventsV2(request);
+            logger.info("Successfully saved {} events", request.getEventsCount());
+            return result;
+        } catch (StatusRuntimeException e) {
+            throw handleSaveException(e, "saveEventsV2");
+        }
+    }
+
+    private Exception handleSaveException(StatusRuntimeException e, String operation) {
         Map<String, Object> context = new HashMap<>();
-        context.put("operation", "saveEvents");
+        context.put("operation", operation);
         context.put("statusCode", e.getStatus().getCode().name());
         context.put("statusDescription", e.getStatus().getDescription());
 
@@ -471,6 +489,8 @@ public class OrisunClient implements AutoCloseable {
     }
 
     // Asynchronous methods
+    /** @deprecated Use {@link #saveEventsV2Async(Eventstore.SaveEventsV2Request)}. */
+    @Deprecated
     public CompletableFuture<Eventstore.WriteResult> saveEventsAsync(Eventstore.SaveEventsRequest request) {
         CompletableFuture<Eventstore.WriteResult> future = new CompletableFuture<>();
 
@@ -485,7 +505,7 @@ public class OrisunClient implements AutoCloseable {
                     @Override
                     public void onError(Throwable t) {
                         if (t instanceof StatusRuntimeException e) {
-                            future.completeExceptionally(handleSaveException(e));
+                            future.completeExceptionally(handleSaveException(e, "saveEvents"));
                         } else
                             future.completeExceptionally(new OrisunException("Failed to save events", t));
                     }
@@ -493,6 +513,41 @@ public class OrisunClient implements AutoCloseable {
                     @Override
                     public void onCompleted() {
                         // Already completed in onNext
+                    }
+                });
+
+        return future;
+    }
+
+    public CompletableFuture<Eventstore.WriteResult> saveEventsV2Async(Eventstore.SaveEventsV2Request request) {
+        CompletableFuture<Eventstore.WriteResult> future = new CompletableFuture<>();
+        try {
+            RequestValidator.validateSaveEventsV2Request(request);
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
+            return future;
+        }
+
+        asyncStub
+                .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                .saveEventsV2(request, new StreamObserver<>() {
+                    @Override
+                    public void onNext(Eventstore.WriteResult result) {
+                        future.complete(result);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        if (t instanceof StatusRuntimeException e) {
+                            future.completeExceptionally(handleSaveException(e, "saveEventsV2"));
+                        } else {
+                            future.completeExceptionally(new OrisunException("Failed to save events", t));
+                        }
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        // Already completed in onNext.
                     }
                 });
 
