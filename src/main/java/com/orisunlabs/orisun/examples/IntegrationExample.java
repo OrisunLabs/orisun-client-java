@@ -37,10 +37,8 @@ public class IntegrationExample {
             System.out.println("✅ Connection established successfully!");
 
             String boundary = "orisun_test_1";
-            String orderStreamName = "order-" + System.currentTimeMillis();
-
             // Demonstrate order processing workflow
-            demonstrateOrderProcessing(client, boundary, orderStreamName);
+            demonstrateOrderProcessing(client, boundary);
 
             // Demonstrate event subscription and processing
             demonstrateEventProcessing(client, boundary);
@@ -50,24 +48,19 @@ public class IntegrationExample {
         }
     }
 
-    private static void demonstrateOrderProcessing(OrisunClient client, String boundary, String orderStreamName) throws Exception {
+    private static void demonstrateOrderProcessing(OrisunClient client, String boundary) throws Exception {
         System.out.println("\n📦 Demonstrating order processing workflow...");
 
         // Create order events
-        Eventstore.SaveEventsRequest orderRequest = Eventstore.SaveEventsRequest.newBuilder()
+        Eventstore.SaveEventsV2Request orderRequest = Eventstore.SaveEventsV2Request.newBuilder()
                 .setBoundary(boundary)
-                .setQuery(Eventstore.SaveQuery.newBuilder()
-                        .setExpectedPosition(Eventstore.Position.newBuilder()
-                                .setCommitPosition(-1)
-                                .setPreparePosition(-1))
-                        .build())
                 .addEvents(createOrderCreatedEvent())
                 .addEvents(createPaymentProcessedEvent())
                 .addEvents(createOrderShippedEvent())
                 .build();
 
         // Save order events
-        Eventstore.WriteResult result = client.saveEvents(orderRequest);
+        Eventstore.WriteResult result = client.saveEventsV2(orderRequest);
         System.out.println("✅ Order workflow saved at position: " + result.getLogPosition().getCommitPosition());
 
         // Read back the order events
@@ -158,19 +151,12 @@ public class IntegrationExample {
     }
 
     private static void addNewOrderEvent(OrisunClient client, String boundary) throws Exception {
-        String streamName = "order-" + System.currentTimeMillis();
-
-        Eventstore.SaveEventsRequest request = Eventstore.SaveEventsRequest.newBuilder()
+        Eventstore.SaveEventsV2Request request = Eventstore.SaveEventsV2Request.newBuilder()
                 .setBoundary(boundary)
-                .setQuery(Eventstore.SaveQuery.newBuilder()
-                        .setExpectedPosition(Eventstore.Position.newBuilder()
-                                .setCommitPosition(-1)
-                                .setPreparePosition(-1))
-                        .build())
                 .addEvents(createOrderDeliveredEvent())
                 .build();
 
-        client.saveEvents(request);
+        client.saveEventsV2(request);
     }
 
     private static Eventstore.EventToSave createOrderCreatedEvent() {

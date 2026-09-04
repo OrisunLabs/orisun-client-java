@@ -407,6 +407,7 @@ public class OrisunClient implements AutoCloseable {
         }
     }
 
+    /** Atomically saves events after validating every query-level observation. */
     public Eventstore.WriteResult saveEventsV2(final Eventstore.SaveEventsV2Request request) throws Exception {
         RequestValidator.validateSaveEventsV2Request(request);
 
@@ -519,6 +520,7 @@ public class OrisunClient implements AutoCloseable {
         return future;
     }
 
+    /** Asynchronously saves events after validating every query-level observation. */
     public CompletableFuture<Eventstore.WriteResult> saveEventsV2Async(Eventstore.SaveEventsV2Request request) {
         CompletableFuture<Eventstore.WriteResult> future = new CompletableFuture<>();
         try {

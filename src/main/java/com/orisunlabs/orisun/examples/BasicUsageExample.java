@@ -3,7 +3,6 @@ package com.orisunlabs.orisun.examples;
 import com.orisunlabs.orisun.client.OrisunClient;
 import com.orisunlabs.orisun.client.DefaultLogger;
 import com.orisunlabs.orisun.client.EventSubscription;
-import com.orisunlabs.orisun.client.OptimisticConcurrencyException;
 import com.orisun.eventstore.Eventstore;
 
 import java.util.UUID;
@@ -37,31 +36,24 @@ public class BasicUsageExample {
             System.out.println("✅ Connected successfully!");
 
             final var boundary = "orisun_test_1";
-            final var streamName = "user-" + System.currentTimeMillis();
-
             // Create and save events
-            saveEventsExample(client, boundary, streamName);
+            saveEventsExample(client, boundary);
 
             // Read events back
             readEventsExample(client, boundary);
 
             // Subscribe to events
-            subscribeToEventsExample(client, boundary, streamName);
+            subscribeToEventsExample(client, boundary);
             System.out.println("✅ Example completed!");
 
         }
     }
 
-    private static void saveEventsExample(OrisunClient client, String boundary, String streamName) throws Exception {
-        System.out.println("📝 Saving events to stream: " + streamName);
+    private static void saveEventsExample(OrisunClient client, String boundary) throws Exception {
+        System.out.println("📝 Saving events to boundary: " + boundary);
 
-        Eventstore.SaveEventsRequest request = Eventstore.SaveEventsRequest.newBuilder()
+        Eventstore.SaveEventsV2Request request = Eventstore.SaveEventsV2Request.newBuilder()
                 .setBoundary(boundary)
-                .setQuery(Eventstore.SaveQuery.newBuilder()
-                        .setExpectedPosition(Eventstore.Position.newBuilder()
-                                .setCommitPosition(-1)
-                                .setPreparePosition(-1))
-                        .build())
                 .addEvents(Eventstore.EventToSave.newBuilder()
                         .setEventId(UUID.randomUUID().toString())
                         .setEventType("UserCreated")
@@ -76,15 +68,9 @@ public class BasicUsageExample {
                         .build())
                 .build();
 
-        try {
-            Eventstore.WriteResult result = client.saveEvents(request);
-            System.out.println("✅ Events saved successfully!");
-            System.out.println("📍 Log position: " + result.getLogPosition().getCommitPosition());
-        } catch (OptimisticConcurrencyException e) {
-            System.err.println("⚠️ Concurrency conflict detected:");
-            System.err.println("   Expected version: " + e.getExpectedVersion());
-            System.err.println("   Actual version: " + e.getActualVersion());
-        }
+        Eventstore.WriteResult result = client.saveEventsV2(request);
+        System.out.println("✅ Events saved successfully!");
+        System.out.println("📍 Log position: " + result.getLogPosition().getCommitPosition());
     }
 
     private static void readEventsExample(OrisunClient client, String boundary) throws Exception {
@@ -108,7 +94,7 @@ public class BasicUsageExample {
         }
     }
 
-    private static void subscribeToEventsExample(OrisunClient client, String boundary, String streamName) throws Exception {
+    private static void subscribeToEventsExample(OrisunClient client, String boundary) throws Exception {
         System.out.println("🔔 Setting up subscription to events...");
 
         Eventstore.CatchUpSubscribeToEventStoreRequest request =
