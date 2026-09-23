@@ -10,6 +10,14 @@ import java.util.UUID;
  */
 public class RequestValidator {
 
+    public static void validateGetWriteContextRequest(Eventstore.GetWriteContextRequest request) {
+        if (request == null || request.getBoundary().isEmpty() || request.getWriteId().isEmpty()) {
+            throw new OrisunException("Boundary and write ID are required")
+                    .addContext("operation", "getWriteContext");
+        }
+    }
+
+
     /**
      * Validate a SaveEventsRequest
      *

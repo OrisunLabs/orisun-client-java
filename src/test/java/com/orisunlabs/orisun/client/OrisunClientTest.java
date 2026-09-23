@@ -51,6 +51,43 @@ class OrisunClientTest {
     }
 
     @Test
+    void testWriteContextsPreserveObservationsAndWriteIds() throws Exception {
+        var position = Eventstore.Position.newBuilder().setCommitPosition(Long.MAX_VALUE).setPreparePosition(7).build();
+        var query = Eventstore.Query.newBuilder().addCriteria(Eventstore.Criterion.newBuilder()
+                .addTags(Eventstore.Tag.newBuilder().setKey("__eventType").setValue("Created"))).build();
+        var context = Eventstore.WriteContext.newBuilder().setWriteId(Long.MAX_VALUE + ":7")
+                .addConsistency(Eventstore.ConsistencyObservation.newBuilder().setQuery(query).setPosition(position)).build();
+        mockService.nextWriteContext = context;
+        var request = Eventstore.GetWriteContextRequest.newBuilder().setBoundary("orders")
+                .setWriteId(context.getWriteId()).build();
+        assertEquals(context, client.getWriteContext(request));
+        assertEquals(context, client.getWriteContextAsync(request).get(5, TimeUnit.SECONDS));
+        assertEquals(request, mockService.lastWriteContextRequest);
+        mockService.nextWriteContext = context.toBuilder().clearConsistency().build();
+        assertEquals(0, client.getWriteContext(request).getConsistencyCount());
+        mockService.setNextWriteResult(Eventstore.WriteResult.newBuilder().setWriteId(context.getWriteId())
+                .setLogPosition(position).build());
+        var saved = client.saveEventsV2(Eventstore.SaveEventsV2Request.newBuilder().setBoundary("orders")
+                .addEvents(Eventstore.EventToSave.newBuilder().setEventId(UUID.randomUUID().toString())
+                        .setEventType("Created").setData("{}"))
+                .addAllConsistency(context.getConsistencyList()).build());
+        assertEquals(context.getWriteId(), saved.getWriteId());
+        assertEquals(Long.MAX_VALUE, saved.getLogPosition().getCommitPosition());
+    }
+
+    @Test
+    void testWriteContextValidationAndErrors() throws Exception {
+        assertThrows(OrisunException.class, () -> client.getWriteContext(null));
+        assertThrows(OrisunException.class, () -> client.getWriteContext(Eventstore.GetWriteContextRequest.getDefaultInstance()));
+        assertTrue(client.getWriteContextAsync(null).isCompletedExceptionally());
+        var request = Eventstore.GetWriteContextRequest.newBuilder().setBoundary("orders").setWriteId("1:1").build();
+        var error = assertThrows(OrisunException.class, () -> client.getWriteContext(request));
+        assertEquals(io.grpc.Status.Code.NOT_FOUND, io.grpc.Status.fromThrowable(error.getCause()).getCode());
+        assertThrows(java.util.concurrent.ExecutionException.class,
+                () -> client.getWriteContextAsync(request).get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
     void testTransportTuningOptions() throws Exception {
         try (OrisunClient tunedClient = OrisunClient
                 .newBuilder()
@@ -432,6 +469,21 @@ class OrisunClientTest {
 
     // Mock service implementation
     private static class MockEventStoreService extends EventStoreGrpc.EventStoreImplBase {
+        private Eventstore.WriteContext nextWriteContext;
+        private Eventstore.GetWriteContextRequest lastWriteContextRequest;
+
+        @Override
+        public void getWriteContext(Eventstore.GetWriteContextRequest request,
+                                    StreamObserver<Eventstore.WriteContext> observer) {
+            lastWriteContextRequest = request;
+            if (nextWriteContext == null) {
+                observer.onError(io.grpc.Status.NOT_FOUND.asRuntimeException());
+            } else {
+                observer.onNext(nextWriteContext);
+                observer.onCompleted();
+            }
+        }
+
         private Eventstore.WriteResult nextWriteResult;
         private Eventstore.GetLatestByCriteriaResponse nextLatestByCriteriaResponse;
         private Eventstore.SaveEventsRequest lastSaveEventsRequest;

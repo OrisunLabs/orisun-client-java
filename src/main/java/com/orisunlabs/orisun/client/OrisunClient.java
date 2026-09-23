@@ -441,6 +441,52 @@ public class OrisunClient implements AutoCloseable {
         return new OrisunException("Failed to save events", e, context);
     }
 
+    /** Retrieve the observations checked atomically with a boundary-scoped write. */
+    public Eventstore.WriteContext getWriteContext(Eventstore.GetWriteContextRequest request) {
+        RequestValidator.validateGetWriteContextRequest(request);
+        try {
+            return blockingStub.withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getWriteContext(request);
+        } catch (StatusRuntimeException e) {
+            throw writeContextException(e, request);
+        }
+    }
+
+    public CompletableFuture<Eventstore.WriteContext> getWriteContextAsync(
+            Eventstore.GetWriteContextRequest request) {
+        CompletableFuture<Eventstore.WriteContext> future = new CompletableFuture<>();
+        try {
+            RequestValidator.validateGetWriteContextRequest(request);
+            asyncStub.withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                    .getWriteContext(request, new StreamObserver<>() {
+                        @Override
+                        public void onNext(Eventstore.WriteContext result) {
+                            future.complete(result);
+                        }
+
+                        @Override
+                        public void onError(Throwable error) {
+                            future.completeExceptionally(writeContextException(error, request));
+                        }
+
+                        @Override
+                        public void onCompleted() {}
+                    });
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
+        }
+        return future;
+    }
+
+    private OrisunException writeContextException(Throwable error, Eventstore.GetWriteContextRequest request) {
+        Map<String, Object> context = new HashMap<>();
+        context.put("operation", "getWriteContext");
+        context.put("boundary", request.getBoundary());
+        context.put("writeId", request.getWriteId());
+        context.put("statusCode", Status.fromThrowable(error).getCode().name());
+        return new OrisunException("Failed to get write context", error, context);
+    }
+
     public Eventstore.GetEventsResponse getEvents(Eventstore.GetEventsRequest request) throws OrisunException {
         // Validate request
         RequestValidator.validateGetEventsRequest(request);
