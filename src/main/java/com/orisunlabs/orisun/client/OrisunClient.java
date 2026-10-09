@@ -47,23 +47,11 @@ public class OrisunClient implements AutoCloseable {
         private String dnsTarget;
         private String staticTarget;
 
-        // Keep the original methods for backward compatibility
-        public Builder withHost(String host) {
-            return withServer(host, 50051);
-        }
 
-        public Builder withPort(int port) {
-            if (servers.isEmpty()) {
-                servers.add(new ServerAddress("localhost", port));
-            } else {
-                // Update the last added server's port
-                ServerAddress lastServer = servers.get(servers.size() - 1);
-                servers.set(servers.size() - 1, new ServerAddress(lastServer.host, port));
-            }
-            return this;
-        }
 
-        // New methods for multiple servers
+
+
+        // Configure server endpoints
         public Builder withServer(String host, int port) {
             servers.add(new ServerAddress(host, port));
             return this;
@@ -385,26 +373,35 @@ public class OrisunClient implements AutoCloseable {
     }
 
     // Synchronous methods
-    /** @deprecated Use {@link #saveEventsV2(Eventstore.SaveEventsV2Request)}. */
-    @Deprecated
-    public Eventstore.WriteResult saveEvents(final Eventstore.SaveEventsRequest request) throws Exception {
-        // Validate request
+
+
+    /** Saves events with one optional complete query observation. */
+    public Eventstore.WriteResult saveEvents(Eventstore.SaveEventsRequest request) throws Exception {
         RequestValidator.validateSaveEventsRequest(request);
+        return saveEventsV2(singleQuerySave(request));
+    }
 
-        logger.debug("Saving {} events in boundary '{}'",
-                request.getEventsCount(), request.getBoundary());
-
+    /** Asynchronously saves events through the single-query client API. */
+    public CompletableFuture<Eventstore.WriteResult> saveEventsAsync(Eventstore.SaveEventsRequest request) {
         try {
-            Eventstore.WriteResult result = blockingStub
-                    .saveEvents(request);
-
-            logger.info("Successfully saved {} events'",
-                    request.getEventsCount());
-            return result;
-
-        } catch (StatusRuntimeException e) {
-            throw handleSaveException(e, "saveEvents");
+            RequestValidator.validateSaveEventsRequest(request);
+            return saveEventsV2Async(singleQuerySave(request));
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(e);
         }
+    }
+
+    private Eventstore.SaveEventsV2Request singleQuerySave(Eventstore.SaveEventsRequest request) {
+        var save = Eventstore.SaveEventsV2Request.newBuilder()
+                .setBoundary(request.getBoundary()).addAllEvents(request.getEventsList());
+        if (request.hasQuery() && request.getQuery().hasSubsetQuery()
+                && request.getQuery().getSubsetQuery().getCriteriaCount() > 0) {
+            var position = request.getQuery().hasExpectedPosition() ? request.getQuery().getExpectedPosition()
+                    : Eventstore.Position.newBuilder().setCommitPosition(-1).setPreparePosition(-1).build();
+            save.addConsistency(Eventstore.ConsistencyObservation.newBuilder()
+                    .setQuery(request.getQuery().getSubsetQuery()).setPosition(position));
+        }
+        return save.build();
     }
 
     /** Atomically saves events after validating every query-level observation. */
@@ -536,35 +533,7 @@ public class OrisunClient implements AutoCloseable {
     }
 
     // Asynchronous methods
-    /** @deprecated Use {@link #saveEventsV2Async(Eventstore.SaveEventsV2Request)}. */
-    @Deprecated
-    public CompletableFuture<Eventstore.WriteResult> saveEventsAsync(Eventstore.SaveEventsRequest request) {
-        CompletableFuture<Eventstore.WriteResult> future = new CompletableFuture<>();
 
-        asyncStub
-                .withDeadlineAfter(defaultTimeoutSeconds, TimeUnit.SECONDS)
-                .saveEvents(request, new StreamObserver<>() {
-                    @Override
-                    public void onNext(Eventstore.WriteResult result) {
-                        future.complete(result);
-                    }
-
-                    @Override
-                    public void onError(Throwable t) {
-                        if (t instanceof StatusRuntimeException e) {
-                            future.completeExceptionally(handleSaveException(e, "saveEvents"));
-                        } else
-                            future.completeExceptionally(new OrisunException("Failed to save events", t));
-                    }
-
-                    @Override
-                    public void onCompleted() {
-                        // Already completed in onNext
-                    }
-                });
-
-        return future;
-    }
 
     /** Asynchronously saves events after validating every query-level observation. */
     public CompletableFuture<Eventstore.WriteResult> saveEventsV2Async(Eventstore.SaveEventsV2Request request) {

@@ -137,7 +137,8 @@ class OrisunClientTest {
         assertNotNull(result);
         assertEquals(1, result.getLogPosition().getCommitPosition());
         assertEquals(1, result.getLogPosition().getPreparePosition());
-        assertEquals(request, mockService.getLastSaveEventsRequest());
+        assertEquals(request.getBoundary(), mockService.getLastSaveEventsV2Request().getBoundary());
+        assertEquals(request.getEventsList(), mockService.getLastSaveEventsV2Request().getEventsList());
     }
 
     @Test
@@ -207,7 +208,7 @@ class OrisunClientTest {
     void testSaveEventsAsync() throws Exception {
         // Prepare test data
         String eventId = UUID.randomUUID().toString();
-        Eventstore.SaveEventsRequest request = Eventstore.SaveEventsRequest.newBuilder()
+        Eventstore.SaveEventsV2Request request = Eventstore.SaveEventsV2Request.newBuilder()
                 .setBoundary("users")
                 .addEvents(Eventstore.EventToSave
                         .newBuilder()
@@ -227,7 +228,7 @@ class OrisunClientTest {
                 .build());
 
         // Execute test
-        CompletableFuture<Eventstore.WriteResult> future = client.saveEventsAsync(request);
+        CompletableFuture<Eventstore.WriteResult> future = client.saveEventsV2Async(request);
         Eventstore.WriteResult result = future.get(5, TimeUnit.SECONDS);
 
         // Verify results
@@ -486,7 +487,6 @@ class OrisunClientTest {
 
         private Eventstore.WriteResult nextWriteResult;
         private Eventstore.GetLatestByCriteriaResponse nextLatestByCriteriaResponse;
-        private Eventstore.SaveEventsRequest lastSaveEventsRequest;
         private Eventstore.SaveEventsV2Request lastSaveEventsV2Request;
         private Eventstore.GetLatestByCriteriaRequest lastGetLatestByCriteriaRequest;
         private StreamObserver<Eventstore.Event> eventObserver;
@@ -500,9 +500,7 @@ class OrisunClientTest {
             this.pingSuccess = success;
         }
 
-        Eventstore.SaveEventsRequest getLastSaveEventsRequest() {
-            return lastSaveEventsRequest;
-        }
+
 
         Eventstore.SaveEventsV2Request getLastSaveEventsV2Request() {
             return lastSaveEventsV2Request;
@@ -522,13 +520,6 @@ class OrisunClientTest {
             }
         }
 
-        @Override
-        public void saveEvents(Eventstore.SaveEventsRequest request,
-                               StreamObserver<Eventstore.WriteResult> responseObserver) {
-            lastSaveEventsRequest = request;
-            responseObserver.onNext(nextWriteResult);
-            responseObserver.onCompleted();
-        }
 
         @Override
         public void saveEventsV2(Eventstore.SaveEventsV2Request request,

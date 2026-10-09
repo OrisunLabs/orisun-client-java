@@ -82,7 +82,6 @@ class AdminClientTest {
                 .build();
         BoundaryInfo existing = created.toBuilder()
                 .setName("legacy_orders")
-                .setExistedBeforeCatalog(true)
                 .build();
 
         mockService.setNextCreateBoundaryResponse(CreateBoundaryResponse.newBuilder().setBoundary(created).build());
@@ -100,17 +99,13 @@ class AdminClientTest {
         BoundaryInfo existingResult = client.createBoundary(CreateBoundaryRequest.newBuilder()
                 .setName("legacy_orders")
                 .setPlacement(placement)
-                .setExistedBeforeCatalog(true)
                 .build());
         List<BoundaryInfo> listResult = client.listBoundaries();
         BoundaryInfo getResult = client.getBoundary("orders");
 
-        assertFalse(createResult.getExistedBeforeCatalog());
-        assertTrue(existingResult.getExistedBeforeCatalog());
         assertEquals(2, listResult.size());
         assertEquals("orders", getResult.getName());
         assertEquals("legacy_orders", mockService.getLastCreateBoundaryRequest().getName());
-        assertTrue(mockService.getLastCreateBoundaryRequest().getExistedBeforeCatalog());
         assertEquals("orders", mockService.getLastGetBoundaryRequest().getName());
     }
 
@@ -125,7 +120,6 @@ class AdminClientTest {
                 client.createBoundary(CreateBoundaryRequest.newBuilder()
                         .setName("orders")
                         .setPlacement(BoundaryPlacementInput.newBuilder().setBackend("postgres"))
-                        .setExistedBeforeCatalog(true)
                         .build()));
         assertTrue(existingStorageError.getMessage().contains("namespace is required"));
 

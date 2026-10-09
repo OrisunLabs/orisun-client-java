@@ -18,19 +18,12 @@ public class RequestValidator {
     }
 
 
-    /**
-     * Validate a SaveEventsRequest
-     *
-     * @param request The request to validate
-     * @throws OrisunException if validation fails
-     */
-    public static void validateSaveEventsRequest(Eventstore.SaveEventsRequest request) {
-        if (request == null) {
-            throw new OrisunException("SaveEventsRequest cannot be null");
-        }
 
-        validateSaveRequest(
-                request.getBoundary(), request.getEventsList(), "saveEvents", "SaveEventsRequest");
+
+    /** Validates a single-query client convenience request. */
+    public static void validateSaveEventsRequest(Eventstore.SaveEventsRequest request) {
+        if (request == null) throw new OrisunException("SaveEventsRequest cannot be null");
+        validateSaveRequest(request.getBoundary(), request.getEventsList(), "saveEvents", "SaveEventsRequest");
     }
 
     /**
